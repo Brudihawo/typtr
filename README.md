@@ -1,9 +1,12 @@
 # A WIP typing trainer with some extended analysis features
 
 ## Goals
-- [ ] Basic working TUI
+- [x] Basic working TUI
+- [ ] Selection for word list size
+- [ ] Actually random words
 - [ ] Detect common error types
 - [ ] Detect common letter combination errors / speed deficits
+- [ ] Read config from config file
 - [ ] Adaptive word frequencies
 - [ ] Adapt word count to speed deficits and error types
 - [ ] Configure scales for error adaption

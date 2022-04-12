@@ -175,6 +175,14 @@ bool SL_ends_with(SL to_test, SL end);
  */
 bool SL_eq(SL a, SL b);
 
+/**
+ * @brief Get char from SL
+ *
+ * @param a SL to query
+ * @param pos position to get char from
+ */
+char SL_at(const SL a, int pos);
+
 #ifdef SL_IMPLEMENTATION // INCLUDE IMPLEMENTATIONS
 #include "stdio.h"
 #include "stdlib.h"
@@ -309,6 +317,11 @@ bool SL_eq(SL a, SL b) {
       return false;
   }
   return true;
+}
+
+char SL_at(const SL a, int pos) {
+  assert(pos < a.len);
+  return a.start[pos];
 }
 
 #endif // SL_IMPLEMENTATION
