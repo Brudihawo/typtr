@@ -1,0 +1,13 @@
+build
+build.ninja
+
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+.cache
+.cmake
+
+.is_debug
+.is_release
+
+compile_commands.json
