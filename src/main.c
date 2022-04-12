@@ -12,6 +12,11 @@ typedef struct {
   long nchars;
 } WordList;
 
+void WL_free(WordList wl) {
+  free((void*)wl.chars);
+  free((void*)wl.words);
+}
+
 void exit_err_file(const char *msg, const char *fname) {
   if (errno) {
     fprintf(stderr, "%s '%s': %s\nExiting...\n", msg, fname, strerror(errno));
@@ -106,5 +111,6 @@ int main() {
     printf("%ld: " SL_FMT "\n", wi, SL_FP(w_list.words[wi]));
   }
 
+  WL_free(w_list);
   return EXIT_SUCCESS;
 }
