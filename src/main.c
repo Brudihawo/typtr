@@ -3,13 +3,15 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "sys/ioctl.h"
-#include "termios.h"
+#include "sys/time.h"
 #include "unistd.h"
 #include <stdbool.h>
 
 #define SL_IMPLEMENTATION
 #include "sl.h"
 
+#include "term_handler.h"
+#include "text.h"
 #include "wordlist.h"
 
 #define LINE_SIZE_WORDS 5
@@ -18,50 +20,91 @@
 #define GRN "\033[34m"
 #define RST "\033[0m"
 
-void get_random_words(const WordList w_list, long *word_idcs) {
-  for (long i = 0; i < LINE_SIZE_WORDS; ++i) {
-    word_idcs[i] = rand() % w_list.nwords;
-  }
-}
-
-int get_line_len(WordList w_list, long *cur_line) {
-  int ret = 0;
-  for (long i = 0; i < LINE_SIZE_WORDS; ++i) {
-    assert(cur_line[i] < w_list.nwords && cur_line[i] > 0);
-    ret += w_list.words[cur_line[i]].len;
-  }
-  return ret;
-}
-
-void goto_term_pos(int x, int y) { printf("\033[%d;%dH", x, y); }
-void clear(void) { printf("\033[H\033[J"); }
-
 bool run = true;
 
-static void sigint_handler(int sig) { run = false; }
+static void sigint_handler() { run = false; }
 
-void init_term() {
-  struct termios term;
-  tcgetattr(STDIN_FILENO, &term);
-  term.c_lflag &= ~ECHO;
-  term.c_lflag &= ~ICANON;
-  tcsetattr(STDIN_FILENO, 0, &term);
-  setbuf(stdout, NULL);
-}
-
-void deinit_term() {
-  goto_term_pos(0, 0);
-  struct termios term;
-  tcgetattr(STDIN_FILENO, &term);
-  clear();
-  term.c_lflag |= ECHO;
-  term.c_lflag |= ICANON;
-  tcsetattr(STDIN_FILENO, 0, &term);
-}
+#define N_CHARS 27
+const char keys[N_CHARS] = {"abcdefghijklmnopqrstuvwxyz "};
 
 typedef struct {
-  int row, col;
-} TermPos;
+  long matrix[N_CHARS][N_CHARS];
+  long n_hits;
+} ConfMatrix;
+
+typedef struct {
+  float times[N_CHARS];
+  long n_occurrences[N_CHARS];
+  long n_misses[N_CHARS];
+} MonoGramDataSummary;
+
+typedef struct {
+  float execution_time[N_CHARS][N_CHARS];
+  long n_occurrences[N_CHARS][N_CHARS];
+  long n_misses[N_CHARS][N_CHARS];
+} BigramTable;
+
+static void update_conf_matrix(ConfMatrix *mat, Text *t) {
+  mat->n_hits = t->n_chars;
+  for (int i = 0; i < t->n_chars; ++i) {
+    const int correct_idx = t->chars[i] == ' ' ? 26 : t->chars[i] - 97;
+    const int actual_idx = t->typedchars[i] == ' ' ? 26 : t->typedchars[i] - 97;
+    ++mat->matrix[correct_idx][actual_idx];
+  }
+}
+
+static void print_conf_matrix(ConfMatrix *mat) {
+  printf("   ");
+  for (int i = 0; i < N_CHARS; ++i) {
+    printf(" %c  ", keys[i]);
+  }
+  printf("\n");
+
+  for (int i = 0; i < N_CHARS; ++i) {
+    printf(" %c ", keys[i]);
+    for (int j = 0; j < N_CHARS; ++j) {
+      const long confusion = mat->matrix[i][j];
+      if (confusion > 0) {
+        printf("%2ld ", confusion);
+      } else {
+        printf("    ");
+      }
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+static MonoGramDataSummary build_monogram_data(Text *t) {
+  MonoGramDataSummary mds = {0};
+  for (int i = 0; i < t->n_chars; ++i) {
+    const int char_idx = t->chars[i] == ' ' ? 26 : t->chars[i] - 97;
+    if (t->chars[i] != t->typedchars[i]) {
+      ++mds.n_misses[char_idx];
+    }
+    ++mds.n_occurrences[char_idx];
+    mds.times[char_idx] += t->time_to_type[i];
+  }
+  for (int i = 0; i < N_CHARS; ++i) {
+    mds.times[i] /= (float)mds.n_occurrences[i];
+  }
+  return mds;
+}
+
+static void print_mds(MonoGramDataSummary* mds) {
+  for (int i = 0; i < N_CHARS; ++i) {
+    printf("%5.1f ", mds->times[i]);
+  }
+  printf("\n");
+  for (int i = 0; i < N_CHARS; ++i) {
+    printf("%5ld ", mds->n_occurrences[i]);
+  }
+  printf("\n");
+  for (int i = 0; i < N_CHARS; ++i) {
+    printf("%5ld ", mds->n_misses[i]);
+  }
+  printf("\n");
+}
 
 int main() {
   // set up interrupt handler
@@ -74,73 +117,81 @@ int main() {
   }
 
   WordList w_list = get_malloced_wordlist("./top1000en.txt");
-  long cur_line[LINE_SIZE_WORDS] = {0};
+  int cur_line[LINE_SIZE_WORDS] = {0};
+  for (int i = 0; i < LINE_SIZE_WORDS; ++i) {
+    cur_line[i] = rand() % 1000;
+  }
 
   // get terminal size
   struct winsize w;
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-  // clear terminal
-  for (long row = 0; row < w.ws_row; ++row) {
-    printf("%*c\n", w.ws_col, ' ');
-  }
-
   // suppress echoing
   init_term();
 
-  get_random_words(w_list, cur_line);
+  Text text = T_create(&w_list, w.ws_row, w.ws_col, cur_line, LINE_SIZE_WORDS);
 
-  // TODO: proper handling of the current line size (with wrapping etc)
-  const long line_len = get_line_len(w_list, cur_line);
-  assert(line_len < w.ws_col);
+  clear();
+  T_draw_all(text);
 
-  long row = w.ws_row / 2;
-  goto_term_pos(row, (int)(w.ws_col - line_len) / 2);
+  TermPos term_pos = text.t_line_starts[0];
 
-  for (int i = 0; i < LINE_SIZE_WORDS; ++i) {
-    printf(SL_FMT " ", SL_FP(w_list.words[cur_line[i]]));
+  goto_term_pos((TermPos){0});
+  printf("Press [[space]] to start");
+
+  while (true) {
+    char c = getchar();
+    if (c == ' ') {
+      break;
+    }
   }
+  goto_term_pos((TermPos){0});
+  printf("                        ");
+  goto_term_pos(term_pos);
 
-  int cur_word_idx = 0;
-  int cur_char_idx = 0;
-  TermPos pos = {row, (w.ws_col - line_len) / 2};
-
-  goto_term_pos(pos.row, pos.col);
+  struct timeval start, end;
   bool cur_char_wrong = false;
   while (run) {
-    const SL *cur_word = &w_list.words[cur_line[cur_word_idx]];
+    gettimeofday(&start, NULL);
     char c = getchar();
+    gettimeofday(&end, NULL);
+    const double time_ms = (double)(end.tv_sec - start.tv_sec) * 1000.0 +
+                           (double)(end.tv_usec - start.tv_usec) / 1000.0;
 
-    if (cur_char_idx == cur_word->len) {
+    goto_term_pos((TermPos){0});
+    printf("Current Key Time: %.2f", time_ms);
+    goto_term_pos(term_pos);
+
+    if (!cur_char_wrong) {
+      text.typedchars[text.cur_char] = c;
+      text.time_to_type[text.cur_char] = time_ms;
+    }
+    if (c == text.chars[text.cur_char]) {
+      goto_term_pos(term_pos);
       if (c == ' ') {
-        goto_term_pos(pos.row, pos.col);
-        fprintf(stdout, "%s%c" RST, (cur_char_wrong ? RED : GRN),
-                cur_char_wrong ? '_' : c);
-        if (cur_word_idx == LINE_SIZE_WORDS - 1) {
-          run = false;
-        } else {
-          cur_char_idx = 0;
-          ++cur_word_idx;
-          ++pos.col;
-          cur_char_wrong = false;
-        }
-      } else {
-        cur_char_wrong = true;
+        c = '_';
       }
+      fprintf(stdout, "%s%c" RST, (cur_char_wrong ? RED : GRN), c);
+
+      if (!T_advance_char(&text, &term_pos)) {
+        run = false;
+      }
+
+      cur_char_wrong = false;
     } else {
-      if (c == SL_at(*cur_word, cur_char_idx)) {
-        goto_term_pos(pos.row, pos.col);
-        fprintf(stdout, "%s%c" RST, (cur_char_wrong ? RED : GRN), c);
-        cur_char_wrong = false;
-        ++cur_char_idx;
-        ++pos.col;
-      } else {
-        cur_char_wrong = true;
-      }
+      cur_char_wrong = true;
+      text.errors[text.cur_char] = true;
     }
   }
 
   // reset terminal
+  goto_term_pos((TermPos){0});
   deinit_term();
+
+  ConfMatrix confusions = {0};
+  update_conf_matrix(&confusions, &text);
+
+  MonoGramDataSummary mds = build_monogram_data(&text);
+  print_mds(&mds);
 
   WL_free(w_list);
   return EXIT_SUCCESS;

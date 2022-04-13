@@ -1,20 +1,12 @@
-#include "sl.h"
-#include "stdlib.h"
-#include "stdio.h"
+#include "wordlist.h"
+#include "assert.h"
 #include "errno.h"
+#include "sl.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include <string.h>
 
-typedef struct {
-  const char *chars;
-  const SL *words;
-  long nwords;
-  long nchars;
-} WordList;
-
-void WL_free(WordList wl) {
-  free((void*)wl.chars);
-  free((void*)wl.words);
-}
-
+// TODO: File handling for initialisation. This is probably not ideal. Refactor!
 void exit_err_file(const char *msg, const char *fname) {
   if (errno) {
     fprintf(stderr, "%s '%s': %s\nExiting...\n", msg, fname, strerror(errno));
@@ -42,7 +34,12 @@ long get_fsize_or_panic(FILE *f, const char *fname) {
   return size;
 }
 
-const WordList get_malloced_wordlist(const char *fname) {
+void WL_free(WordList wl) {
+  free((void *)wl.chars);
+  free((void *)wl.words);
+}
+
+WordList get_malloced_wordlist(const char *fname) {
   FILE *f = fopen(fname, "r");
 
   if (errno) {
@@ -53,8 +50,9 @@ const WordList get_malloced_wordlist(const char *fname) {
 
   const long fsize = get_fsize_or_panic(f, fname);
 
-  char *chars = malloc(fsize * sizeof(char));
-  fread(chars, fsize, 1, f);
+  assert(fsize > 0);
+  char *chars = malloc((unsigned long)fsize * sizeof(char));
+  fread(chars, (unsigned long)fsize, 1, f);
   exit_err_file("Error reading file", fname);
 
   fclose(f);
@@ -65,8 +63,6 @@ const WordList get_malloced_wordlist(const char *fname) {
       .chars = chars,
   };
 
-  SL allchars = {ret.chars, fsize};
-
   long word_count = 1;
   for (long pos = 0; pos < ret.nchars; ++pos) {
     if (ret.chars[pos] == '\n' || ret.chars[pos] == ' ') {
@@ -74,7 +70,7 @@ const WordList get_malloced_wordlist(const char *fname) {
     }
   }
 
-  SL *words = malloc(word_count * sizeof(SL));
+  SL *words = malloc((unsigned long)word_count * sizeof(SL));
 
   long cur_word_start = 0;
   long invalid_words = 0;
@@ -96,7 +92,7 @@ const WordList get_malloced_wordlist(const char *fname) {
     }
   }
 
-  ret.words = realloc(words, (word_count - invalid_words) * sizeof(SL));
+  ret.words = realloc(words, (unsigned long)(word_count - invalid_words) * sizeof(SL));
   ret.nwords = word_count - invalid_words;
 
   return ret;

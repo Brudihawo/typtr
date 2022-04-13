@@ -1,14 +1,16 @@
 SHELL:=/usr/bin/bash
 
+CMAKE_FLAGS += -DCMAKE_EXPORT_COMPILE_COMMANDS=true -DCMAKE_C_COMPILER=clang
+
 debug_config:
 	mkdir -p build
-	cmake -G Ninja -B build -S src -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=true
+	cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja -B build -S src $(CMAKE_FLAGS)
 	touch .is_debug
 	if [ -f '.is_release' ]; then rm -v .is_release ; fi
 
 release_config:
 	mkdir -p build
-	cmake -G Ninja -B build -S src -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=true
+	CC=clang cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -B build -S src $(CMAKE_FLAGS)
 	touch .is_release
 	if [ -f '.is_debug' ]; then rm -v .is_debug ; fi
 
