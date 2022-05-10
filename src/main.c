@@ -1,4 +1,5 @@
 #include "assert.h"
+#include "errno.h"
 #include "signal.h"
 #include "stdio.h"
 #include "stdlib.h"
@@ -10,6 +11,7 @@
 #define SL_IMPLEMENTATION
 #include "sl.h"
 
+#include "stats.h"
 #include "term_handler.h"
 #include "text.h"
 #include "wordlist.h"
@@ -23,88 +25,6 @@
 bool run = true;
 
 static void sigint_handler() { run = false; }
-
-#define N_CHARS 27
-const char keys[N_CHARS] = {"abcdefghijklmnopqrstuvwxyz "};
-
-typedef struct {
-  long matrix[N_CHARS][N_CHARS];
-  long n_hits;
-} ConfMatrix;
-
-typedef struct {
-  float times[N_CHARS];
-  long n_occurrences[N_CHARS];
-  long n_misses[N_CHARS];
-} MonoGramDataSummary;
-
-typedef struct {
-  float execution_time[N_CHARS][N_CHARS];
-  long n_occurrences[N_CHARS][N_CHARS];
-  long n_misses[N_CHARS][N_CHARS];
-} BigramTable;
-
-static void update_conf_matrix(ConfMatrix *mat, Text *t) {
-  mat->n_hits = t->n_chars;
-  for (int i = 0; i < t->n_chars; ++i) {
-    const int correct_idx = t->chars[i] == ' ' ? 26 : t->chars[i] - 97;
-    const int actual_idx = t->typedchars[i] == ' ' ? 26 : t->typedchars[i] - 97;
-    ++mat->matrix[correct_idx][actual_idx];
-  }
-}
-
-static void print_conf_matrix(ConfMatrix *mat) {
-  printf("   ");
-  for (int i = 0; i < N_CHARS; ++i) {
-    printf(" %c  ", keys[i]);
-  }
-  printf("\n");
-
-  for (int i = 0; i < N_CHARS; ++i) {
-    printf(" %c ", keys[i]);
-    for (int j = 0; j < N_CHARS; ++j) {
-      const long confusion = mat->matrix[i][j];
-      if (confusion > 0) {
-        printf("%2ld ", confusion);
-      } else {
-        printf("    ");
-      }
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-
-static MonoGramDataSummary build_monogram_data(Text *t) {
-  MonoGramDataSummary mds = {0};
-  for (int i = 0; i < t->n_chars; ++i) {
-    const int char_idx = t->chars[i] == ' ' ? 26 : t->chars[i] - 97;
-    if (t->chars[i] != t->typedchars[i]) {
-      ++mds.n_misses[char_idx];
-    }
-    ++mds.n_occurrences[char_idx];
-    mds.times[char_idx] += t->time_to_type[i];
-  }
-  for (int i = 0; i < N_CHARS; ++i) {
-    mds.times[i] /= (float)mds.n_occurrences[i];
-  }
-  return mds;
-}
-
-static void print_mds(MonoGramDataSummary* mds) {
-  for (int i = 0; i < N_CHARS; ++i) {
-    printf("%5.1f ", mds->times[i]);
-  }
-  printf("\n");
-  for (int i = 0; i < N_CHARS; ++i) {
-    printf("%5ld ", mds->n_occurrences[i]);
-  }
-  printf("\n");
-  for (int i = 0; i < N_CHARS; ++i) {
-    printf("%5ld ", mds->n_misses[i]);
-  }
-  printf("\n");
-}
 
 int main() {
   // set up interrupt handler
@@ -187,11 +107,35 @@ int main() {
   goto_term_pos((TermPos){0});
   deinit_term();
 
+  // create ConfMatrix if no file is found, else load data from file
   ConfMatrix confusions = {0};
+  FILE *data_file = fopen(STORAGE_NAME, "r");
+  if (errno) {
+    if (errno == ENOENT) {
+      // file does not exist
+    } else {
+      fprintf(stderr, "Error opening storage file '%s': %s\nExiting...\n",
+              STORAGE_NAME, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    fseek(data_file, 0, SEEK_SET);
+    fread(&confusions, sizeof(ConfMatrix), 1, data_file);
+    fclose(data_file);
+  }
   update_conf_matrix(&confusions, &text);
 
   MonoGramDataSummary mds = build_monogram_data(&text);
   print_mds(&mds);
+
+  FILE *outfile = fopen(STORAGE_NAME, "w+");
+  if (errno) {
+    fprintf(stderr, "Error opening file %s for storage: %s\n", STORAGE_NAME,
+            strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+  dump_stats(outfile, &mds, &confusions);
+  fclose(outfile);
 
   WL_free(w_list);
   return EXIT_SUCCESS;

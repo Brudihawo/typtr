@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(typtr)
 
-add_executable(typtr ./main.c ./wordlist.c ./term_handler.c text.c)
+add_executable(typtr ./main.c ./wordlist.c ./term_handler.c text.c stats.c file_util.c)
 
 target_compile_options(
   typtr PUBLIC

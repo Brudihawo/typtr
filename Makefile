@@ -2,6 +2,8 @@ SHELL:=/usr/bin/bash
 
 CMAKE_FLAGS += -DCMAKE_EXPORT_COMPILE_COMMANDS=true -DCMAKE_C_COMPILER=clang
 
+.DEFAULT_GOAL = debug
+
 debug_config:
 	mkdir -p build
 	cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja -B build -S src $(CMAKE_FLAGS)

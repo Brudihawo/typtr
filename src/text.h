@@ -1,3 +1,6 @@
+#ifndef TEXT_H
+#define TEXT_H
+
 #include "term_handler.h"
 #include "wordlist.h"
 
@@ -40,3 +43,4 @@ Text T_create(WordList *w_list, int term_rows, int term_cols, int *indices,
 void T_draw_all(Text t);
 
 bool T_advance_char(Text *t, TermPos* term_pos);
+#endif // TEXT_H
