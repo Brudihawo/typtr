@@ -35,6 +35,26 @@ int main() {
     fprintf(stderr, "Error registering signal handler\nExiting...\n");
     exit(EXIT_FAILURE);
   }
+ 
+  // create ConfMatrix if no file is found, else load data from file
+  ConfMatrix confusions = {0};
+  FILE *data_file = fopen(STORAGE_NAME, "r");
+  if (errno) {
+    if (errno == ENOENT) {
+      // file does not exist
+    } else {
+      fprintf(stderr, "Error opening storage file '%s': %s\nExiting...\n",
+              STORAGE_NAME, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    fseek(data_file, 0, SEEK_SET);
+    fread(&confusions, sizeof(ConfMatrix), 1, data_file);
+    fclose(data_file);
+  }
+
+  init_crc_table();
+  srand(crc32(&confusions, sizeof(confusions)));
 
   WordList w_list = get_malloced_wordlist("./top1000en.txt");
   int cur_line[LINE_SIZE_WORDS] = {0};
@@ -107,22 +127,6 @@ int main() {
   goto_term_pos((TermPos){0});
   deinit_term();
 
-  // create ConfMatrix if no file is found, else load data from file
-  ConfMatrix confusions = {0};
-  FILE *data_file = fopen(STORAGE_NAME, "r");
-  if (errno) {
-    if (errno == ENOENT) {
-      // file does not exist
-    } else {
-      fprintf(stderr, "Error opening storage file '%s': %s\nExiting...\n",
-              STORAGE_NAME, strerror(errno));
-      exit(EXIT_FAILURE);
-    }
-  } else {
-    fseek(data_file, 0, SEEK_SET);
-    fread(&confusions, sizeof(ConfMatrix), 1, data_file);
-    fclose(data_file);
-  }
   update_conf_matrix(&confusions, &text);
 
   MonoGramDataSummary mds = build_monogram_data(&text);
@@ -138,5 +142,6 @@ int main() {
   fclose(outfile);
 
   WL_free(w_list);
+  deinit_crc_table();
   return EXIT_SUCCESS;
 }
