@@ -263,7 +263,7 @@ SL SL_chop_slice_right(SL to_chop, SL delim) {
 SL SL_chop_line(SL to_chop) { return SL_chop_delim(to_chop, '\n'); }
 
 SL SL_trim_whitespace(SL to_trim) {
-  size_t cur_idx = 0;
+  int cur_idx = 0;
   while (SL_AT(to_trim, cur_idx) == ' ') {
     cur_idx++;
   }
@@ -275,7 +275,7 @@ SL SL_trim_whitespace(SL to_trim) {
 }
 
 SL SL_trim_whitespace_right(SL to_trim) {
-  size_t cur_idx = 1;
+  int cur_idx = 1;
   while (SL_AT(to_trim, to_trim.len - cur_idx) == ' ') {
     cur_idx++;
   }
