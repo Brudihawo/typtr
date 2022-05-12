@@ -16,15 +16,19 @@
 #include "text.h"
 #include "wordlist.h"
 
-#define LINE_SIZE_WORDS 5
+#define LINE_SIZE_WORDS 20
 
 #define RED "\033[31m"
 #define GRN "\033[34m"
 #define RST "\033[0m"
 
-bool run = true;
+volatile bool run = true;
+volatile bool canceled = false;
 
-static void sigint_handler() { run = false; }
+static void sigint_handler() {
+  run = false;
+  canceled = true;
+}
 
 int main() {
   // set up interrupt handler
@@ -36,10 +40,33 @@ int main() {
     exit(EXIT_FAILURE);
   }
 
+  // create ConfMatrix if no file is found, else load data from file
+  ConfMatrix confusions = {0};
+  BigramTable bt = {0};
+  FILE *data_file = fopen(STORAGE_NAME, "r");
+  if (errno) {
+    if (errno == ENOENT) {
+      // file does not exist
+    } else {
+      fprintf(stderr, "Error opening storage file '%s': %s\nExiting...\n",
+              STORAGE_NAME, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    fseek(data_file, 0, SEEK_SET);
+    fread(&confusions, sizeof(ConfMatrix), 1, data_file);
+    fseek(data_file, sizeof(MonoGramDataSummary), SEEK_CUR);
+    fread(&bt, sizeof(BigramTable), 1, data_file);
+    fclose(data_file);
+  }
+
+  init_crc_table();
+  srand(crc32((char *)&confusions, sizeof(confusions)));
+
   WordList w_list = get_malloced_wordlist("./top1000en.txt");
   int cur_line[LINE_SIZE_WORDS] = {0};
   for (int i = 0; i < LINE_SIZE_WORDS; ++i) {
-    cur_line[i] = rand() % 1000;
+    cur_line[i] = rand() % w_list.nwords;
   }
 
   // get terminal size
@@ -70,9 +97,13 @@ int main() {
 
   struct timeval start, end;
   bool cur_char_wrong = false;
+  gettimeofday(&start, NULL);
   while (run) {
-    gettimeofday(&start, NULL);
     char c = getchar();
+    // skip unprintable and control characters
+    if (c < 32 || c == 127) {
+      continue;
+    }
     gettimeofday(&end, NULL);
     const double time_ms = (double)(end.tv_sec - start.tv_sec) * 1000.0 +
                            (double)(end.tv_usec - start.tv_usec) / 1000.0;
@@ -97,9 +128,11 @@ int main() {
       }
 
       cur_char_wrong = false;
+      gettimeofday(&start, NULL);
     } else {
       cur_char_wrong = true;
       text.errors[text.cur_char] = true;
+      ++text.n_errors;
     }
   }
 
@@ -107,35 +140,36 @@ int main() {
   goto_term_pos((TermPos){0});
   deinit_term();
 
-  // create ConfMatrix if no file is found, else load data from file
-  ConfMatrix confusions = {0};
-  FILE *data_file = fopen(STORAGE_NAME, "r");
-  if (errno) {
-    if (errno == ENOENT) {
-      // file does not exist
-    } else {
-      fprintf(stderr, "Error opening storage file '%s': %s\nExiting...\n",
-              STORAGE_NAME, strerror(errno));
+  if (!canceled) {
+    update_conf_matrix(&confusions, &text);
+
+    MonoGramDataSummary mds = build_monogram_data(&text);
+    double total_time_ms = 0;
+    for (int i = 0; i < text.n_chars; ++i) {
+      total_time_ms += text.time_to_type[i];
+    }
+
+    BT_update(&bt, &text);
+
+    FILE *outfile = fopen(STORAGE_NAME, "w+");
+    if (errno) {
+      fprintf(stderr, "Error opening file %s for storage: %s\n", STORAGE_NAME,
+              strerror(errno));
       exit(EXIT_FAILURE);
     }
-  } else {
-    fseek(data_file, 0, SEEK_SET);
-    fread(&confusions, sizeof(ConfMatrix), 1, data_file);
-    fclose(data_file);
-  }
-  update_conf_matrix(&confusions, &text);
+    dump_stats(outfile, &mds, &confusions, &bt);
+    fclose(outfile);
 
-  MonoGramDataSummary mds = build_monogram_data(&text);
-  print_mds(&mds);
+    WL_free(w_list);
+    deinit_crc_table();
+    const double cpm = (double)text.n_chars / total_time_ms * 60.0 * 1000.0;
 
-  FILE *outfile = fopen(STORAGE_NAME, "w+");
-  if (errno) {
-    fprintf(stderr, "Error opening file %s for storage: %s\n", STORAGE_NAME,
-            strerror(errno));
-    exit(EXIT_FAILURE);
+    printf(GRN "Accuracy" RST ": %f%% (%i / %i)\n" GRN "Average Speed:" RST
+               " %f cpm / %f wpm\n",
+           (float)(text.n_chars - text.n_errors) / (float)text.n_chars,
+           text.n_chars - text.n_errors, text.n_chars, cpm,
+           (double)text.n_words / total_time_ms * 1000.0 * 60.0);
   }
-  dump_stats(outfile, &mds, &confusions);
-  fclose(outfile);
 
   WL_free(w_list);
   return EXIT_SUCCESS;

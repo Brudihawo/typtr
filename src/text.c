@@ -93,6 +93,7 @@ Text T_create(WordList *w_list, int term_rows, int term_cols, int *indices,
 
       .chars = allchars,
       .n_chars = n_chars,
+      .n_words = n_words,
       .n_lines = n_lines,
       .word_idcs = word_idcs,
       .w_list = w_list,

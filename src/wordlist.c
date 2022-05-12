@@ -13,6 +13,7 @@ void WL_free(WordList wl) {
 }
 
 WordList get_malloced_wordlist(const char *fname) {
+  errno = 0;
   FILE *f = fopen(fname, "r");
 
   if (errno) {

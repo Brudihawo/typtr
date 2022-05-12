@@ -33,6 +33,7 @@ typedef struct {
   const int *line_sizes;
 
   bool *errors;
+  int n_errors;
   char *typedchars;
   double *time_to_type;
 } Text;
