@@ -23,6 +23,10 @@ debug: debug_config
 release: release_config
 	cmake --build build
 
+
+dconv:
+	cmake --build build
+
 clean:
 	rm -frv build/*
 	rm -v .is_debug
