@@ -43,6 +43,7 @@ int main() {
   // create ConfMatrix if no file is found, else load data from file
   ConfMatrix confusions = {0};
   BigramTable bt = {0};
+  MonoGramDataSummary mds = {0};
   FILE *data_file = fopen(STORAGE_NAME, "r");
   if (errno) {
     if (errno == ENOENT) {
@@ -55,7 +56,7 @@ int main() {
   } else {
     fseek(data_file, 0, SEEK_SET);
     fread(&confusions, sizeof(ConfMatrix), 1, data_file);
-    fseek(data_file, sizeof(MonoGramDataSummary), SEEK_CUR);
+    fread(&mds, sizeof(MonoGramDataSummary), 1, data_file);
     fread(&bt, sizeof(BigramTable), 1, data_file);
     fclose(data_file);
   }
@@ -143,7 +144,7 @@ int main() {
   if (!canceled) {
     update_conf_matrix(&confusions, &text);
 
-    MonoGramDataSummary mds = build_monogram_data(&text);
+    MDS_update(&mds, &text);
     double total_time_ms = 0;
     for (int i = 0; i < text.n_chars; ++i) {
       total_time_ms += text.time_to_type[i];
@@ -157,7 +158,7 @@ int main() {
               strerror(errno));
       exit(EXIT_FAILURE);
     }
-    dump_stats(outfile, &mds, &confusions, &bt);
+    dump_stats_bin(outfile, &mds, &confusions, &bt);
     fclose(outfile);
 
     WL_free(w_list);

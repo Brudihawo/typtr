@@ -5,13 +5,14 @@
 #include "text.h"
 #include "stdint.h"
 
-#define N_CHARS (128 - 32 - 1)
+#define N_CHARS (128 - 32 - 4)
 #define STORAGE_NAME "typtr_data.dat"
 
 extern const char keys[N_CHARS];
 extern uint32_t *crc_table;
 
 typedef struct {
+  //          correct typed
   long matrix[N_CHARS][N_CHARS];
   long n_hits;
 } ConfMatrix;
@@ -32,12 +33,11 @@ void update_conf_matrix(ConfMatrix *mat, Text *t);
 
 void print_conf_matrix(ConfMatrix *mat);
 
-
-MonoGramDataSummary build_monogram_data(Text *t);
+void MDS_update(MonoGramDataSummary* mds, Text *t);
 
 void print_mds(MonoGramDataSummary *mds);
 
-void dump_stats(FILE *f, const MonoGramDataSummary *mds,
+void dump_stats_bin(FILE *f, const MonoGramDataSummary *mds,
                 const ConfMatrix *confusions, const BigramTable *bt);
 
 // CRC for generating random seed
@@ -46,4 +46,6 @@ void deinit_crc_table(void);
 uint32_t crc32(const char *bytes, long size);
 
 void BT_update(BigramTable *b, const Text *t);
+
+void dump_stats_csv(const MonoGramDataSummary* mds, const ConfMatrix *confusions, const BigramTable *bt);
 #endif // STATS_H

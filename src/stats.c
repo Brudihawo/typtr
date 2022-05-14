@@ -76,20 +76,22 @@ void print_conf_matrix(ConfMatrix *mat) {
   printf("\n");
 }
 
-MonoGramDataSummary build_monogram_data(Text *t) {
-  MonoGramDataSummary mds = {0};
+void MDS_update(MonoGramDataSummary *mds, Text *t) {
+  for (int i = 0; i < N_CHARS; ++i) {
+    mds->times[i] *= mds->n_occurrences[i];
+  }
+
   for (int i = 0; i < t->n_chars; ++i) {
     const int chr_idx = char_idx(t->chars[i]);
     if (t->chars[i] != t->typedchars[i]) {
-      ++mds.n_misses[chr_idx];
+      ++mds->n_misses[chr_idx];
     }
-    ++mds.n_occurrences[chr_idx];
-    mds.times[chr_idx] += t->time_to_type[i];
+    ++mds->n_occurrences[chr_idx];
+    mds->times[chr_idx] += t->time_to_type[i];
   }
   for (int i = 0; i < N_CHARS; ++i) {
-    mds.times[i] /= (float)mds.n_occurrences[i];
+    mds->times[i] /= (float)mds->n_occurrences[i];
   }
-  return mds;
 }
 
 void print_mds(MonoGramDataSummary *mds) {
@@ -130,9 +132,40 @@ void BT_update(BigramTable *b, const Text *t) {
   }
 }
 
-void dump_stats(FILE *f, const MonoGramDataSummary *mds,
-                const ConfMatrix *confusions, const BigramTable *bt) {
+void dump_stats_bin(FILE *f, const MonoGramDataSummary *mds,
+                    const ConfMatrix *confusions, const BigramTable *bt) {
   fwrite(confusions, sizeof(ConfMatrix), 1, f);
   fwrite(mds, sizeof(MonoGramDataSummary), 1, f);
   fwrite(bt, sizeof(BigramTable), 1, f);
+}
+
+void dump_stats_csv(const MonoGramDataSummary *mds,
+                    const ConfMatrix *confusions, const BigramTable *bt) {
+  FILE *conf_file = fopen("./confusions.csv", "w");
+
+  fprintf(conf_file, "correct");
+  for (int i = 0; i < N_CHARS; ++i) {
+    fprintf(conf_file, ",%i", i + 32);
+  }
+  fprintf(conf_file, "\n");
+
+  for (int i = 0; i < N_CHARS; ++i) {
+    fprintf(conf_file, "%i", i + 32);
+    for (int j = 0; j < N_CHARS; ++j) {
+      fprintf(conf_file, ",%ld", confusions->matrix[i][j]);
+    }
+    fprintf(conf_file, "\n");
+  }
+  fclose(conf_file);
+
+  FILE *mds_file = fopen("./mds.csv", "w");
+  fprintf(mds_file, "char,occurrences,misses,avg_time\n");
+  for (int i = 0; i < N_CHARS; ++i) {
+    fprintf(mds_file, "%i,%ld,%ld,%f\n", i + 32, mds->n_occurrences[i], mds->n_misses[i],
+            mds->times[i]);
+  }
+  fclose(mds_file);
+
+  FILE *bt_file = fopen("./bigramtable.csv", "w");
+  fclose(bt_file);
 }
