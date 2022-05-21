@@ -4,8 +4,8 @@
 #include "stdint.h"
 #include "text.h"
 #include "stdint.h"
+#include "keys.h"
 
-#define N_CHARS (128 - 32 - 1)
 #define STORAGE_NAME "typtr_data.dat"
 
 extern const char keys[N_CHARS];

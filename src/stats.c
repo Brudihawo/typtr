@@ -9,12 +9,8 @@
 #include "stdlib.h"
 #include <stdint.h>
 
-const char keys[N_CHARS] = " !\"#$%&'()*+,-./"
-                           "0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
-                           "abcdefghijklmnopqrstuvwxyz{|}~";
 uint32_t *crc_table;
 
-static int char_idx(char c) { return c - 32; }
 
 void init_crc_table(void) {
   crc_table = malloc(256 * sizeof(uint32_t));

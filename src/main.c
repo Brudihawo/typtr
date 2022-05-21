@@ -17,6 +17,7 @@
 #include "term_handler.h"
 #include "text.h"
 #include "wordlist.h"
+#include "keys.h"
 
 #define LINE_SIZE_WORDS 20
 
@@ -351,7 +352,7 @@ int main() {
     while (run) {
       char c = getchar();
       // skip unprintable and control characters
-      if (c < 32 || c == 127) {
+      if (c < KC_SPC || c == KC_DEL) {
         continue;
       }
       gettimeofday(&end, NULL);
