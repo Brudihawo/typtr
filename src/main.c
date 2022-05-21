@@ -13,13 +13,14 @@
 #define SL_IMPLEMENTATION
 #include "sl.h"
 
+#include "keys.h"
 #include "stats.h"
 #include "term_handler.h"
 #include "text.h"
 #include "wordlist.h"
-#include "keys.h"
 
 #define LINE_SIZE_WORDS 20
+#define POST_BUF_SZ 256
 
 #define RED "\033[31m"
 #define GRN "\033[34m"
@@ -187,6 +188,14 @@ static WordList WL_update(const WordList *orig, const MonoGramDataSummary *mds,
   return ret;
 }
 
+static bool validate_persist(MonoGramDataSummary *mds, ConfMatrix *cm,
+                             BigramTable *bt) {
+  (void) bt;
+  (void) cm;
+  return memcmp(mds, &(MonoGramDataSummary){0}, sizeof(MonoGramDataSummary)) ==
+         0;
+}
+
 bool run = true;
 bool canceled = false;
 
@@ -222,7 +231,7 @@ int main() {
   init_crc_table();
   srand(crc32((char *)confusions, sizeof(ConfMatrix)));
 
-  WordList base = get_malloced_wordlist("./top1000en.txt");
+  WordList base = get_malloced_wordlist("./top3000en.txt");
   WordList w_list;
   if (memcmp(mds, &(MonoGramDataSummary){0}, sizeof(MonoGramDataSummary)) ==
       0) {
@@ -249,8 +258,12 @@ int main() {
     fprintf(stderr, "Error registering signal handler\nExiting...\n");
     exit(EXIT_FAILURE);
   }
+  init_crc_table();
+  char post_message[POST_BUF_SZ];
+  memset(post_message, 0x0, POST_BUF_SZ);
 
   // create ConfMatrix if no file is found, else load data from file
+  WordList base = get_malloced_wordlist("./top3000en.txt");
   while (!canceled) {
     run = true;
     ConfMatrix *confusions = calloc(1, sizeof(ConfMatrix));
@@ -274,13 +287,10 @@ int main() {
       fclose(data_file);
     }
 
-    init_crc_table();
     srand(crc32((char *)confusions, sizeof(ConfMatrix)));
 
-    WordList base = get_malloced_wordlist("./top1000en.txt");
     WordList w_list;
-    if (memcmp(mds, &(MonoGramDataSummary){0}, sizeof(MonoGramDataSummary)) ==
-        0) {
+    if (validate_persist(mds, confusions, bt)) {
       WL_deepcopy(&base, &w_list);
     } else {
       w_list = WL_update(&base, mds, bt);
@@ -306,7 +316,10 @@ int main() {
     TermPos term_pos = text.t_line_starts[0];
 
     goto_term_pos((TermPos){0});
-    printf("Press [[space]] to start\n\n");
+    printf("Press [[space]] to start\n");
+    printf("%s\n", post_message);
+
+    goto_term_pos((TermPos){5, 0});
 
     BigramInfo *bi = BI_list_new(bt);
     ChrInfo *ci = CI_list_new(mds);
@@ -359,7 +372,7 @@ int main() {
       const double time_ms = (double)(end.tv_sec - start.tv_sec) * 1000.0 +
                              (double)(end.tv_usec - start.tv_usec) / 1000.0;
 
-      goto_term_pos((TermPos){0});
+      goto_term_pos((TermPos){1, 0});
       printf("Current Key Time: %.2f", time_ms);
       goto_term_pos(term_pos);
 
@@ -408,21 +421,24 @@ int main() {
       dump_stats_bin(outfile, mds, confusions, bt);
       fclose(outfile);
 
-      deinit_crc_table();
       const double cpm = (double)text.n_chars / total_time_ms * 60.0 * 1000.0;
 
-      printf(GRN "Accuracy" RST ": %f%% (%i / %i)\n" GRN "Average Speed:" RST
-                 " %f cpm / %f wpm\n",
-             (float)(text.n_chars - text.n_errors) / (float)text.n_chars,
-             text.n_chars - text.n_errors, text.n_chars, cpm, cpm / 5.0f);
+      goto_term_pos((TermPos){1, 0});
+      memset(post_message, 0x0, POST_BUF_SZ);
+      snprintf(post_message, POST_BUF_SZ,
+               GRN "Accuracy" RST ": %5.2f%% (%4i / %4i)\n" GRN
+                   "Average Speed:" RST " %5.1f cpm / %5.1f wpm\n",
+               (float)(text.n_chars - text.n_errors) / (float)text.n_chars,
+               text.n_chars - text.n_errors, text.n_chars, cpm, cpm / 5.0f);
     }
     WL_free(w_list);
-    deinit_crc_table();
   }
 
+  WL_free(base);
   // reset terminal
   goto_term_pos((TermPos){0});
   deinit_term();
+  deinit_crc_table();
 
   return EXIT_SUCCESS;
 }

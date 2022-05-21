@@ -19,7 +19,7 @@
 - [ ] Selection for lesson size
 - [ ] Custom Word list
 
-Got the current wordlist from [here](https://gist.githubusercontent.com/deekayen/4148741/raw/98d35708fa344717d8eee15d11987de6c8e26d7d/1-1000.txt)
+Got the top1000 wordlist from [here](https://gist.githubusercontent.com/deekayen/4148741/raw/98d35708fa344717d8eee15d11987de6c8e26d7d/1-1000.txt) and the top3000 wordlist from [here](https://www.ef.com/wwen/english-resources/english-vocabulary/top-3000-words/).
 
 ## Quickstart
 
@@ -35,4 +35,4 @@ $ cd typtr
 $ make
 $ ./build/typtr
 ```
-You can substitute `make` with `make debug` for debug build.
+You can substitute `make` with `make debug` for debug build
