@@ -5,7 +5,7 @@
 #include "text.h"
 #include "stdint.h"
 
-#define N_CHARS (128 - 32 - 4)
+#define N_CHARS (128 - 32 - 1)
 #define STORAGE_NAME "typtr_data.dat"
 
 extern const char keys[N_CHARS];

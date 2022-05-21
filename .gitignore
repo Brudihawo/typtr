@@ -11,3 +11,11 @@ cmake_install.cmake
 .is_release
 
 compile_commands.json
+
+confusions.csv
+mds.csv
+bigramtable.csv
+typtr_data.dat
+
+plotting/
+prototyping/

@@ -24,4 +24,11 @@ WordList get_malloced_wordlist(const char *fname);
  */
 void WL_free(WordList wl);
 
+/**
+ * @brief deep copy src to dst
+ */
+void WL_deepcopy(const WordList* src, WordList* dst);
+
+WordList WL_sample(const WordList* wl, const long* idcs, long n_words);
+
 #endif // WORDLIST_H

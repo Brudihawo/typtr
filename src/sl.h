@@ -1,4 +1,4 @@
-/*
+/**
  * @file sl.h
  * @author Hawo Höfer
  * @version 1.0
@@ -30,32 +30,32 @@
 #include "stdbool.h"
 #include "string.h"
 
-/*
+/**
  * String Slice object
  */
 typedef struct {
-  const char *start; /*< @param start Pointer to character array */
-  int len;           /*< length of sl */
+  const char *start; /**< @param start Pointer to character array */
+  int len;           /**< length of sl */
 } SL;
 
-/* printf format string for SL (use together with SL_FP)*/
+/** printf format string for SL (use together with SL_FP)*/
 #define SL_FMT "%.*s"
 
-/* printf SL processing for SL (use together with SL_FMT)*/
-#define SL_FP(sslice) (sslice).len, (sslice).start
+/** printf SL processing for SL (use together with SL_FMT)*/
+#define SL_FP(sslice) sslice.len, sslice.start
 
-/* Access SL at index */
+/** Access SL at index */
 #define SL_AT(sl, idx) sl.start[idx]
 
-/* New SL from content */
+/** New SL from content */
 #define SL_NEW(content)                                                    \
   (SL) { .start = content, .len = strlen(content) }
 
-/* New SL from Content and size for constant definition */
+/** New SL from Content and size for constant definition */
 #define SL_NWL(content)                                              \
   { .start = content, .len = sizeof(content) - 1 }
 
-/*
+/**
  * @brief Trim chars from an SL.
  *
  * If amount is negative, trim from the right. Otherwise,
@@ -68,7 +68,7 @@ typedef struct {
  */
 SL SL_trim_len(SL to_trim, int amount);
 
-/*
+/**
  * @brief Chop off part of an SL by a char delimiter from the left.
  *
  * This will return an SL excluding the delimiter.
@@ -80,7 +80,7 @@ SL SL_trim_len(SL to_trim, int amount);
  */
 SL SL_chop_delim(SL to_chop, char delim);
 
-/*
+/**
  * @brief Chop off part of an SL by a char delimiter from the right.
  *
  * This will return an SL excluding the delimiter.
@@ -92,7 +92,7 @@ SL SL_chop_delim(SL to_chop, char delim);
  */
 SL SL_chop_delim_right(SL to_chop, char delim);
 
-/*
+/**
  * @brief Chop off part of an SL by an SL delimiter from the right.
  *
  * This will return an SL excluding the delimiter.
@@ -104,7 +104,7 @@ SL SL_chop_delim_right(SL to_chop, char delim);
  */
 SL SL_chop_slice(SL to_chop, SL delim);
 
-/*
+/**
  * @brief Chop off part of an SL by an SL delimiter from the right.
  *
  * This will return an SL excluding the delimiter.
@@ -116,7 +116,7 @@ SL SL_chop_slice(SL to_chop, SL delim);
  */
 SL SL_chop_slice_right(SL to_chop, SL delim);
 
-/*
+/**
  * @brief Trim whitespace from the left of an SL
  *
  * @param to_trim SL to trim
@@ -125,7 +125,7 @@ SL SL_chop_slice_right(SL to_chop, SL delim);
  */
 SL SL_trim_whitespace(SL to_trim);
 
-/*
+/**
  * @brief Trim whitespace from the right of an SL
  *
  * @param to_trim SL to trim
@@ -134,9 +134,10 @@ SL SL_trim_whitespace(SL to_trim);
  */
 SL SL_trim_whitespace_right(SL to_trim);
 
-/*
- * @brief Chop a line from an SL 
- *        Shorthand for SL_chop_delim(to_chop, '\n')
+/**
+ * @brief Chop a line from an SL
+ *
+ * Shorthand for SL_chop_delim(to_chop, '\n').
  *
  * @param to_chop SL to chop
  *
@@ -144,7 +145,7 @@ SL SL_trim_whitespace_right(SL to_trim);
  */
 SL SL_chop_line(SL to_chop);
 
-/*
+/**
  * Test start of SL
  *
  * @param to_test SL to test
@@ -154,7 +155,7 @@ SL SL_chop_line(SL to_chop);
  */
 bool SL_begins_with(SL to_test, SL begin);
 
-/*
+/**
  * Test end of SL
  *
  * @param to_test SL to test
@@ -164,7 +165,7 @@ bool SL_begins_with(SL to_test, SL begin);
  */
 bool SL_ends_with(SL to_test, SL end);
 
-/*
+/**
  * Test equality of SL
  *
  * @param a SL to test
@@ -182,9 +183,19 @@ bool SL_eq(SL a, SL b);
  */
 char SL_at(const SL a, int pos);
 
+/*
+ * @brief Determine if seq is contained in a
+ *
+ * @param a SL to test
+ * @param seq sequence to test against
+ * @param len length of sequence
+ */
+bool SL_contains(const SL a, const char *seq, int len);
+
 #ifdef SL_IMPLEMENTATION // INCLUDE IMPLEMENTATIONS
 #include "stdio.h"
 #include "stdlib.h"
+#include "assert.h"
 
 SL SL_trim_len(SL to_trim, int amount) {
   if (amount > 0) {
@@ -263,7 +274,7 @@ SL SL_chop_slice_right(SL to_chop, SL delim) {
 SL SL_chop_line(SL to_chop) { return SL_chop_delim(to_chop, '\n'); }
 
 SL SL_trim_whitespace(SL to_trim) {
-  int cur_idx = 0;
+  size_t cur_idx = 0;
   while (SL_AT(to_trim, cur_idx) == ' ') {
     cur_idx++;
   }
@@ -275,7 +286,7 @@ SL SL_trim_whitespace(SL to_trim) {
 }
 
 SL SL_trim_whitespace_right(SL to_trim) {
-  int cur_idx = 1;
+  size_t cur_idx = 1;
   while (SL_AT(to_trim, to_trim.len - cur_idx) == ' ') {
     cur_idx++;
   }
@@ -321,6 +332,25 @@ bool SL_eq(SL a, SL b) {
 char SL_at(const SL a, int pos) {
   assert(pos < a.len);
   return a.start[pos];
+}
+
+bool SL_contains(const SL a, const char *b, int len) {
+  if (len > a.len)
+    return false;
+
+  int seq_idx = 0;
+  int seq_start = 0;
+  while (seq_start < a.len - len) {
+    ++seq_start;
+    while (seq_idx < len && SL_at(a, seq_start + seq_idx) == b[seq_idx]) {
+      ++seq_idx;
+      if (seq_idx == len) {
+        return true;
+      }
+    }
+    seq_idx = 0;
+  }
+  return false;
 }
 
 #endif // SL_IMPLEMENTATION

@@ -9,9 +9,9 @@
 #include "stdlib.h"
 #include <stdint.h>
 
-const char keys[N_CHARS] = " !\"#$%&'()*+,./"
-                           "0123456789:;<=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
-                           "abcdefghijklmnoqrstuvwxyz{|}~";
+const char keys[N_CHARS] = " !\"#$%&'()*+,-./"
+                           "0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+                           "abcdefghijklmnopqrstuvwxyz{|}~";
 uint32_t *crc_table;
 
 static int char_idx(char c) { return c - 32; }
@@ -111,23 +111,24 @@ void print_mds(MonoGramDataSummary *mds) {
 
 void BT_update(BigramTable *b, const Text *t) {
   for (long i = 0; i < t->n_chars - 1; ++i) {
-    const int first_charno_actual = char_idx(t->chars[i]);
-    const int second_charno_actual = char_idx(t->chars[i + 1]);
-    const int first_charno_typed = char_idx(t->typedchars[i]);
-    const int second_charno_typed = char_idx(t->typedchars[i + 1]);
-    const float first_time = t->time_to_type[i];
-    const float second_time = t->time_to_type[i + 1];
-    b->avg_execution_time[first_charno_actual][second_charno_actual] *=
-        b->n_occurrences[first_charno_actual][second_charno_actual];
-    b->avg_execution_time[first_charno_actual][second_charno_actual] +=
-        first_time + second_time;
-    b->avg_execution_time[first_charno_actual][second_charno_actual] /=
-        b->n_occurrences[first_charno_actual][second_charno_actual] + 1;
+    const int c1no_act = char_idx(t->chars[i]);
+    const int c2no_act = char_idx(t->chars[i + 1]);
+    const int c1no_typ = char_idx(t->typedchars[i]);
+    const int c2no_typ = char_idx(t->typedchars[i + 1]);
+    const float t1 = t->time_to_type[i];
+    const float t2 = t->time_to_type[i + 1];
 
-    ++b->n_occurrences[first_charno_actual][second_charno_actual];
-    if (first_charno_actual != first_charno_typed ||
-        second_charno_actual != second_charno_typed) {
-      ++b->n_misses[first_charno_actual][second_charno_actual];
+    b->avg_execution_time[c1no_act][c2no_act] *=
+        b->n_occurrences[c1no_act][c2no_act];
+
+    b->avg_execution_time[c1no_act][c2no_act] += t1 + t2;
+
+    ++b->n_occurrences[c1no_act][c2no_act];
+    b->avg_execution_time[c1no_act][c2no_act] /=
+        b->n_occurrences[c1no_act][c2no_act];
+
+    if (c1no_act != c1no_typ || c2no_act != c2no_typ) {
+      ++b->n_misses[c1no_act][c2no_act];
     }
   }
 }
@@ -161,8 +162,8 @@ void dump_stats_csv(const MonoGramDataSummary *mds,
   FILE *mds_file = fopen("./mds.csv", "w");
   fprintf(mds_file, "char,occurrences,misses,avg_time\n");
   for (int i = 0; i < N_CHARS; ++i) {
-    fprintf(mds_file, "%i,%ld,%ld,%f\n", i + 32, mds->n_occurrences[i], mds->n_misses[i],
-            mds->times[i]);
+    fprintf(mds_file, "%i,%ld,%ld,%f\n", i + 32, mds->n_occurrences[i],
+            mds->n_misses[i], mds->times[i]);
   }
   fclose(mds_file);
 

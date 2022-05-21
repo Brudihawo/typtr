@@ -1,11 +1,11 @@
 #include "wordlist.h"
 #include "assert.h"
 #include "errno.h"
+#include "file_util.h"
 #include "sl.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include <string.h>
-#include "file_util.h"
 
 void WL_free(WordList wl) {
   free((void *)wl.chars);
@@ -66,8 +66,46 @@ WordList get_malloced_wordlist(const char *fname) {
     }
   }
 
-  ret.words = realloc(words, (unsigned long)(word_count - invalid_words) * sizeof(SL));
+  ret.words =
+      realloc(words, (unsigned long)(word_count - invalid_words) * sizeof(SL));
   ret.nwords = word_count - invalid_words;
 
+  return ret;
+}
+
+void WL_deepcopy(const WordList* src, WordList* dst) {
+  dst->nchars = src->nchars;
+  dst->nwords = src->nwords;
+  SL* words = malloc((unsigned long)src->nwords * sizeof(SL));
+  char* chars = malloc((unsigned long)src->nchars * sizeof(char));
+
+  memcpy(words, src->words, (unsigned long)src->nwords * sizeof(SL));
+  dst->words = words;
+
+  memcpy(chars, src->chars, (unsigned long)dst->nchars);
+  dst->chars = chars;
+}
+
+WordList WL_sample(const WordList *wl, const long *idcs, long n_words) {
+  assert(n_words <= wl->nwords);
+
+  WordList ret = {0};
+  ret.nwords = n_words;
+
+  for (long i = 0; i < n_words; ++i) {
+    ret.nchars += wl->words[idcs[i]].len;
+  }
+
+  char* chars = malloc((unsigned long)ret.nchars * sizeof(char));
+  SL *words = malloc((unsigned long)n_words * sizeof(SL));
+  long cur_idx = 0;
+  for (long i = 0; i < n_words; ++i) {
+    words[i] = wl->words[idcs[i]];
+    memcpy(&chars[cur_idx], &words[i].start,
+           (unsigned long)words[i].len);
+    cur_idx += words[i].len;
+  }
+  ret.chars = chars;
+  ret.words = words;
   return ret;
 }
